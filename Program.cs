@@ -1,34 +1,31 @@
 using Radzen;
 using CRMBlazorServerRBS.Components;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
 // Add services to the container.
-builder.Services.AddRazorComponents()
-      .AddInteractiveServerComponents().AddHubOptions(options => options.MaximumReceiveMessageSize = 10 * 1024 * 1024);
-
+builder.Services.AddRazorComponents().AddInteractiveServerComponents().AddHubOptions(options => options.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 builder.Services.AddControllers();
 builder.Services.AddRadzenComponents();
-
 builder.Services.AddRadzenCookieThemeService(options =>
 {
     options.Name = "CRMBlazorServerRBSTheme";
     options.Duration = TimeSpan.FromDays(365);
 });
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<CRMBlazorServerRBS.RadzenCRMService>();
+builder.Services.AddDbContext<CRMBlazorServerRBS.Data.RadzenCRMContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("RadzenCRMConnection"));
+});
 var app = builder.Build();
-
-
 var forwardingOptions = new ForwardedHeadersOptions()
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 };
 forwardingOptions.KnownNetworks.Clear();
 forwardingOptions.KnownProxies.Clear();
-
 app.UseForwardedHeaders(forwardingOptions);
-    
-
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -41,8 +38,5 @@ app.UseHttpsRedirection();
 app.MapControllers();
 app.UseStaticFiles();
 app.UseAntiforgery();
-
-app.MapRazorComponents<App>()
-   .AddInteractiveServerRenderMode();
-
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.Run();
