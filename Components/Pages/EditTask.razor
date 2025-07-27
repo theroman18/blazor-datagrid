@@ -1,0 +1,132 @@
+@page "/edit-task"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
+@inject ContextMenuService ContextMenuService
+@inject TooltipService TooltipService
+@inject NotificationService NotificationService
+
+@inject RadzenCRMService RadzenCRMService
+
+<PageTitle>Edit Task</PageTitle>
+<RadzenRow>
+    <RadzenColumn SizeMD="9">
+    <RadzenLabel style="font-weight: bold" Text="Item no longer available." Visible="@(!canEdit)" />
+    </RadzenColumn>
+    <RadzenColumn SizeMD="3">
+    <RadzenButton ButtonStyle="ButtonStyle.Secondary" style="margin-bottom: 20px" Text="Close" Visible="@(!canEdit)" Click="@CancelButtonClick" />
+    </RadzenColumn>
+</RadzenRow>
+<RadzenRow>
+    <RadzenColumn SizeMD="9">
+    <RadzenLabel style="font-weight: bold" Text="Another user has made conflicting changes to one or more of the fields you have modified. Please reload." Visible="@hasChanges" />
+    </RadzenColumn>
+    <RadzenColumn SizeMD="3">
+    <RadzenButton ButtonStyle="ButtonStyle.Secondary" Icon="autorenew" style="margin-bottom: 20px" Text="Reload" Visible="@hasChanges" Click="@ReloadButtonClick" />
+    </RadzenColumn>
+</RadzenRow>
+
+    <RadzenColumn SizeMD=12>
+        <RadzenAlert Shade="Shade.Lighter" Variant="Variant.Flat" Size="AlertSize.Small" AlertStyle="AlertStyle.Danger" Visible="@errorVisible">Cannot save Task</RadzenAlert>
+        <RadzenTemplateForm TItem="CRMBlazorServerRBS.Models.RadzenCRM.Task" Data="@(task)" Visible="@(task != null && canEdit)" Submit="@FormSubmit">
+          <RadzenStack>
+            <RadzenFormField Text="Title" Variant="Variant.Filled">
+                  <ChildContent>
+                    <RadzenTextBox style="display: block; width: 100%" @bind-Value="@(task.Title)" Name="Title" />
+              </ChildContent>
+            </RadzenFormField>
+            <RadzenFormField Text="Opportunity" Variant="Variant.Filled">
+                  <ChildContent>
+                    <RadzenDropDownDataGrid Data="@(opportunitiesForOpportunityId)" TextProperty="UserId" ValueProperty="Id" AllowClear=true
+                          style="display: block; width: 100%" @bind-Value="@(task.OpportunityId)" Name="OpportunityId"
+                           />
+              </ChildContent>
+            </RadzenFormField>
+            <RadzenFormField Text="Due Date" Variant="Variant.Filled">
+                  <ChildContent>
+                    <RadzenDatePicker DateFormat="MM/dd/yyyy" style="display: block; width: 100%" @bind-Value="@(task.DueDate)" Name="DueDate" />
+                  </ChildContent>    
+                  <Helper>
+                    <RadzenRequiredValidator Component="DueDate" Text="DueDate is required" />
+                  </Helper>
+            </RadzenFormField>
+            <RadzenFormField Text="Task Type" Variant="Variant.Filled">
+                  <ChildContent>
+                    <RadzenDropDownDataGrid Data="@(taskTypesForTypeId)" TextProperty="Name" ValueProperty="Id" AllowClear=true
+                          style="display: block; width: 100%" @bind-Value="@(task.TypeId)" Name="TypeId"
+                           />
+              </ChildContent>
+            </RadzenFormField>
+            <RadzenFormField Text="Task Status" Variant="Variant.Filled">
+                  <ChildContent>
+                    <RadzenDropDownDataGrid Data="@(taskStatusesForStatusId)" TextProperty="Name" ValueProperty="Id" AllowClear=true
+                          style="display: block; width: 100%" @bind-Value="@(task.StatusId)" Name="StatusId"
+                           />
+              </ChildContent>
+            </RadzenFormField>
+          </RadzenStack>
+          <RadzenStack style="margin-top:1rem;" Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton ButtonStyle="ButtonStyle.Primary" ButtonType="ButtonType.Submit" Icon="save" Text="Save" Variant="Variant.Flat" />
+                    <RadzenButton ButtonStyle="ButtonStyle.Light" Text="Cancel" Variant="Variant.Flat" Click="@CancelButtonClick"  />
+          </RadzenStack>
+        </RadzenTemplateForm>
+    </RadzenColumn>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        task = await RadzenCRMService.GetTaskById(Id);
+
+        opportunitiesForOpportunityId = await RadzenCRMService.GetOpportunities();
+
+        taskTypesForTypeId = await RadzenCRMService.GetTaskTypes();
+
+        taskStatusesForStatusId = await RadzenCRMService.GetTaskStatuses();
+    }
+    protected bool errorVisible;
+    protected CRMBlazorServerRBS.Models.RadzenCRM.Task task;
+
+    protected IEnumerable<CRMBlazorServerRBS.Models.RadzenCRM.Opportunity> opportunitiesForOpportunityId;
+
+    protected IEnumerable<CRMBlazorServerRBS.Models.RadzenCRM.TaskType> taskTypesForTypeId;
+
+    protected IEnumerable<CRMBlazorServerRBS.Models.RadzenCRM.TaskStatus> taskStatusesForStatusId;
+
+    protected async Task FormSubmit()
+    {
+        try
+        {
+            await RadzenCRMService.UpdateTask(Id, task);
+            DialogService.Close(task);
+        }
+        catch (Exception ex)
+        {
+            hasChanges = ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException;
+            canEdit = !(ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException);
+            errorVisible = true;
+        }
+    }
+
+    protected async Task CancelButtonClick(MouseEventArgs args)
+    {
+        DialogService.Close(null);
+    }
+
+
+    protected bool hasChanges = false;
+    protected bool canEdit = true;
+
+
+    protected async Task ReloadButtonClick(MouseEventArgs args)
+    {
+       RadzenCRMService.Reset();
+        hasChanges = false;
+        canEdit = true;
+
+        task = await RadzenCRMService.GetTaskById(Id);
+    }
+}
